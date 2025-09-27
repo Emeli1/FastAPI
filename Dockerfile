@@ -3,6 +3,6 @@ RUN apt-get update && apt-get install -y libpq-dev gcc python3-dev --no-install-
 
 COPY ./requirements.txt /requirements.txt
 RUN pip install --no-cache-dir -r /requirements.txt
-COPY ./app
+COPY ./app /app
 WORKDIR /app
 ENTRYPOINT ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "80"]

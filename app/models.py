@@ -43,7 +43,12 @@ class Advertisement(Base):
 
 async def init_orm():
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+        except SQLAlchemyError as e:
+            print(f"Ошибка при подключении к базе данных: {e}")
+
 
 async def close_orm():
     await engine.dispose()

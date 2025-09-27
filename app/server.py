@@ -1,11 +1,15 @@
-from fastapi import FastAPI
+from typing import Optional
+
+from fastapi import FastAPI, Query
+from fastapi.params import Depends
+from sqlalchemy import select, or_
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from lifespan import lifespan
-from dependency import SessionDependency
-from schema import (CreateAdvRequest, IdResponse, GetAdvResponse,
-                    SearchAdvResponse, UpdateAdvRequest)
+from dependency import SessionDependency, get_session
+from schema import (CreateAdvRequest, IdResponse, GetAdvResponse,UpdateAdvRequest)
 import crud
 from models import Advertisement
-from sqlalchemy import select
 
 
 app = FastAPI(
@@ -33,12 +37,33 @@ async def get_adv(session: SessionDependency, advertisement_id: int):
     return advertisement.dict
 
 
-@app.get("/advertisement/", response_model=SearchAdvResponse)
-async def search_adv(session: SessionDependency, title: str, price: int):
-    query = select(Advertisement).where(Advertisement.title == title,
-                                        Advertisement.price == price).limit(10000)
-    advertisements = await session.scalars(query)
-    return {"advertisements": [advertisement.id for advertisement in advertisements]}
+
+@app.get("/advertisement/")
+async def search_adv(
+    session: AsyncSession = Depends(get_session),
+    title: Optional[str] = Query(default=None),  # Явное указание default=None
+    description: Optional[str] = Query(default=None),
+    price: Optional[str] = Query(default=None),
+    owner: Optional[str] = Query(default=None)
+):
+    conditions = []
+
+    if title:
+        conditions.append(Advertisement.title == title)
+    if description:
+        conditions.append(Advertisement.description == description)
+    if price:
+        conditions.append(Advertisement.price == price)
+    if owner:
+        conditions.append(Advertisement.owner == owner)
+
+    query = select(Advertisement)
+    if conditions:
+        query = query.where(or_(*conditions))
+
+    advs = await session.execute(query)
+    advs_res = advs.scalars().all()
+    return {"results": [adv.dict for adv in advs_res]}
 
 
 @app.patch("/advertisement/{advertisement_id}", response_model=IdResponse)
